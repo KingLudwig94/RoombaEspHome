@@ -1,0 +1,4 @@
+.vscode
+example/.esphome
+example/roomba
+example/secrets.yaml

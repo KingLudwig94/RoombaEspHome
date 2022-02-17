@@ -1,0 +1,3 @@
+#!/bin/bash
+
+java -jar ../crash-dumps/EspStackTraceDecoder.jar ~/.platformio/packages/toolchain-xtensa/bin/xtensa-lx106-elf-addr2line *.elf screenlog.0

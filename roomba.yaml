@@ -1,0 +1,66 @@
+esphome:
+  name: roomba
+  platform: ESP8266
+  board: d1_mini
+
+  includes:
+    - roomba_uart_component.h
+  libraries:
+    #- Roomba=https://github.com/davidecavestro/Roomba.git
+    #- Roomba=https://github.com/Apocrathia/Roomba
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+uart:
+  id: uart_bus
+  tx_pin: D0
+  rx_pin: D1
+  baud_rate: 9600
+
+
+wifi:
+  ssid: iBargaggez
+  password: "#Ramaiolo1994"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Roomba Fallback Hotspot"
+    password: asdasdafetgsfds45asd687aw
+    
+captive_portal:
+
+
+sensor:
+  - platform: template
+    id: vaill1
+    name: "vl_soll"
+    unit_of_measurement: "°C"
+    lambda: "return {};"
+  - name: vl_ist
+    id: vaill2
+    platform: template
+    unit_of_measurement: "°C"
+    lambda: "return {};"
+  - name: vl_set
+    id: vaill3
+    platform: template
+    unit_of_measurement: "°C"
+    lambda: "return {};"
+  - name: ruecklauf
+    id: vaill4
+    unit_of_measurement: "°C"
+    platform: template
+    lambda: "return {};"
+
+custom_component:
+- lambda: |-
+    auto my_x61 = new RoombaComponent(id(uart_bus),3000,id(vaill1));
+    App.register_component(my_x61);
+    return {my_x61};
+

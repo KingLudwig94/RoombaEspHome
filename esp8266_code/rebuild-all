@@ -1,0 +1,12 @@
+#!/bin/bash
+for i in *; do
+	if [ ! -d "$i" ]; then
+		continue
+	fi
+	if [ ! -e "$i/platformio.ini" ]; then
+		continue
+	fi
+	pushd "$i"
+	../build
+	popd
+done

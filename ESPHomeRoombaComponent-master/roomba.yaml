@@ -1,0 +1,93 @@
+esphome:
+  name: roomba
+  platform: ESP8266
+  board: d1_mini
+
+  includes:
+    - roomba_component.h
+  libraries:
+    - Roomba=https://github.com/davidecavestro/Roomba.git
+    
+#    - Roomba=file:///config/Roomba
+
+  platformio_options:
+    build_flags: -D HAVE_HWSERIAL0
+
+substitutions:
+  name: "roomba"
+  # BRC pin, RX pin, TX pin, polling interval in milliseconds
+  init: 'RoombaComponent::instance(2, 5, 4, Roomba::Baud115200, 30000);'
+
+
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+
+wifi:
+  ssid: iBargaggez
+  password: "#Ramaiolo1994"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Roomba Fallback Hotspot"
+    password: asdasdafetgsfds45asd687aw
+    
+captive_portal:
+
+
+
+
+
+custom_component:
+  - lambda: |-
+      auto r = ${init}
+      return {r};
+sensor:
+ - platform: custom
+   lambda: |-
+      auto r = ${init}
+      return {r->distanceSensor, r->voltageSensor, r->currentSensor, r->chargeSensor, r->capacitySensor, r->batteryPercentSensor};
+   sensors:
+     - name: "${name} distance"
+       unit_of_measurement: "mm"
+       accuracy_decimals: 0
+     - name: "${name} voltage"
+       unit_of_measurement: "mV"
+       accuracy_decimals: 0
+     - name: "${name} current"
+       unit_of_measurement: "mA"
+       accuracy_decimals: 0
+     - name: "${name} charge"
+       unit_of_measurement: "mAh"
+       accuracy_decimals: 0
+     - name: "${name} capacity"
+       unit_of_measurement: "mAh"
+       accuracy_decimals: 0
+     - name: "${name} battery"
+       unit_of_measurement: "%"
+       accuracy_decimals: 0
+       
+text_sensor:
+  - platform: custom
+    lambda: |-
+      auto r = ${init}
+      return {r->activitySensor};
+      
+    text_sensors:
+      - name: "${name} activity"
+
+switch:
+  - platform: gpio
+    id: "roomba_button"
+    name: "Roomba virtual button"
+    pin: D3
+    on_turn_on:
+    - logger.log: "Roomba virtual button pressed!"
+#    - delay: 1s
+    - delay: !lambda "return 400;"
+    - switch.turn_off: roomba_button
