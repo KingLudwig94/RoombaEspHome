@@ -11,7 +11,7 @@ esphome:
 
 # Enable logging
 logger:
-
+  hardware_uart: UART1
 # Enable Home Assistant API
 api:
 
@@ -19,9 +19,12 @@ ota:
 
 uart:
   id: uart_bus
-  tx_pin: D0
-  rx_pin: D1
-  baud_rate: 9600
+  tx_pin: TX
+  rx_pin: RX
+  baud_rate: 115200
+  debug:
+    sequence:
+      lambda: UARTDebug::log_int(direction, bytes, ':');
 
 
 wifi:
@@ -35,32 +38,35 @@ wifi:
     
 captive_portal:
 
+substitutions:
+  init: 'RoombaComponent::instance(id(uart_bus),10000, D2);'
 
 sensor:
-  - platform: template
-    id: vaill1
-    name: "vl_soll"
-    unit_of_measurement: "°C"
-    lambda: "return {};"
-  - name: vl_ist
-    id: vaill2
-    platform: template
-    unit_of_measurement: "°C"
-    lambda: "return {};"
-  - name: vl_set
-    id: vaill3
-    platform: template
-    unit_of_measurement: "°C"
-    lambda: "return {};"
-  - name: ruecklauf
-    id: vaill4
-    unit_of_measurement: "°C"
-    platform: template
-    lambda: "return {};"
+  - platform: custom
+    lambda: |-
+      auto roomba = ${init};
+      App.register_component(roomba);
+      return {roomba->battery_charge, roomba->battery_temp};
+    sensors:
+      - name: "Battery"
+      - name: "Temperatura roomba"
+      
+text_sensor:
+  - platform: custom
+    lambda: |-
+      auto roomba = ${init};
+      //App.register_component(roomba);
+      return {roomba->roombaState};
+    text_sensors:
+      - name: "State"
+        
 
-custom_component:
-- lambda: |-
-    auto my_x61 = new RoombaComponent(id(uart_bus),3000,id(vaill1));
-    App.register_component(my_x61);
-    return {my_x61};
+# custom_component:
+# - lambda: |-
+#     auto roomba = new RoombaComponent(id(uart_bus),3000,4);
+#     App.register_component(roomba);
+#     return {roomba};
+#   # components:
+#   #   - id: roomba
+    
 
