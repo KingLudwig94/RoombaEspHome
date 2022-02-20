@@ -46,10 +46,12 @@ sensor:
     lambda: |-
       auto roomba = ${init};
       App.register_component(roomba);
-      return {roomba->battery_charge, roomba->battery_temp};
+      return {roomba->battery_charge, roomba->battery_temp, roomba->speed, roomba->radius};
     sensors:
       - name: "Battery"
       - name: "Temperatura roomba"
+      - name: "Speed"
+      - name: "Radius"
       
 text_sensor:
   - platform: custom
@@ -60,6 +62,79 @@ text_sensor:
     text_sensors:
       - name: "State"
         
+button:
+  - platform: template
+    name: "Avanti"
+    icon: "mdi:arrow-up-bold"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveForward();
+            return;
+  - platform: template
+    name: "Indietro"
+    icon: "mdi:arrow-down-bold"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveBackwards();
+            return;
+  - platform: template
+    name: "Stop"
+    icon: "mdi:stop"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->stopMove();
+            return;
+  - platform: template
+    name: "CW"
+    icon: "mdi:reload"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveCW();
+            return;
+  - platform: template
+    name: "CCW"
+    icon: "mdi:restore"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveCCW();
+            return;
+  - platform: template
+    name: "Clean"
+    icon: "mdi:vacuum"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->startCleaning();
+            return;
+  - platform: template
+    name: "Stop cleaning"
+    icon: "mdi:stop"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->stopCleaning();
+            return;
+  - platform: template
+    name: "Dock"
+    icon: "mdi:fuel-cell"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->return_to_base();
+            return;
 
 # custom_component:
 # - lambda: |-

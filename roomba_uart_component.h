@@ -5,6 +5,8 @@
 #define STATE_RETURNING 2
 #define STATE_DOCKED 3
 #define STATE_IDLE 4
+#define STATE_MOVING 5
+#define STATE_STOP 6
 #define RETURN_BATTERY_PERCENT 50
 
 #define CHARGE_NONE 0           // Not charging
@@ -28,12 +30,23 @@ struct Roomba_State
   uint8_t num_restarts;
   uint8_t num_timeouts;
 };
-class RoombaComponent : public PollingComponent, public UARTDevice, public CustomAPIDevice
+
+struct Roomba_Speed
+{
+  int16_t left;
+  int16_t right;
+  int16_t radius;
+};
+
+class RoombaComponent : public PollingComponent,
+                        public UARTDevice,
+                        public CustomAPIDevice
 {
   // Sensor *chargeSensor{nullptr};
   uint8_t noSleepPin;
 
   struct Roomba_State Roomba;
+  struct Roomba_Speed Speed;
   RoombaComponent(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin) : PollingComponent(updateInterval), UARTDevice(parent)
   {
     this->noSleepPin = noSleepPin;
@@ -44,6 +57,8 @@ public:
   Sensor *battery_charge = new Sensor();
   Sensor *battery_temp = new Sensor();
   TextSensor *roombaState = new TextSensor();
+  Sensor *speed = new Sensor();
+  Sensor *radius = new Sensor();
 
   static RoombaComponent *instance(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin)
   {
@@ -60,15 +75,19 @@ public:
     register_service(&RoombaComponent::startCleaning, "startCleaning");
     register_service(&RoombaComponent::stopCleaning, "stopCleaning");
     register_service(&RoombaComponent::return_to_base, "dock");
+    register_service(&RoombaComponent::drive, "drive", {"velocity", "radius"});
+    register_service(&RoombaComponent::driveDirect, "driveDirect", {"left", "right"});
+    register_service(&RoombaComponent::stopMove, "stopMoving");
   }
+
   void update() override
   {
     if (Roomba.num_timeouts > 5)
     {
       resetRoomba();
     }
-    //startCleaning();
-    //getSensors();
+    // startCleaning();
+    // getSensors();
   }
 
   void stayAwake()
@@ -234,6 +253,8 @@ public:
   {
     this->battery_charge->publish_state(Roomba.battery_percent);
     this->battery_temp->publish_state(Roomba.battery_temp);
+    this->speed->publish_state((Speed.left + Speed.right) / 2);
+    this->radius->publish_state(Speed.radius);
     this->roombaState->publish_state(translateState().c_str());
   }
 
@@ -260,6 +281,14 @@ public:
     {
       state = "error";
     };
+    if (Roomba.state == STATE_MOVING)
+    {
+      state = "moving";
+    };
+    if (Roomba.state == STATE_STOP)
+    {
+      state = "stop";
+    };
     return state;
   }
 
@@ -282,7 +311,7 @@ public:
     stayAwake();
     // IF we're already cleaning, sending this once will only stop the Roomba.
     // We have to send twice to actually do something...
-    if (Roomba.state == STATE_CLEANING)
+    if (Roomba.state == STATE_CLEANING || Roomba.state == STATE_MOVING)
     {
       byte command[] = {128, 131, 143};
       sendCommandList(command, 3);
@@ -332,5 +361,87 @@ public:
     stayAwake();
     Serial.begin(115200);
     sendCommandList(command, 4);
+  }
+
+  void drive(int velocity, int radius)
+  {
+    stayAwake();
+    byte command[] = {128, 132};
+    sendCommandList(command, 2);
+    if (Roomba.state != STATE_MOVING || Roomba.state != STATE_STOP)
+    {
+      stopMove();
+    }
+    Speed.left = velocity;
+    Speed.right = velocity;
+    Speed.radius = radius;
+    write(137);
+    write((velocity & 0xff00) >> 8);
+    write(velocity & 0xff);
+    write((radius & 0xff00) >> 8);
+    write(radius & 0xff);
+    Roomba.state = STATE_MOVING;
+    sendState();
+  }
+
+  void driveForward()
+  {
+    drive(Speed.left + 30, 0);
+  }
+
+  void driveBackwards()
+  {
+    drive(Speed.left - 30, 0);
+  }
+
+  void driveCW()
+  {
+    if (Roomba.state == STATE_MOVING && Speed.radius != -1)
+    {
+      Speed.left = 0;
+      Speed.right = 0;
+    }
+    drive(Speed.left + 30, -1);
+  }
+
+  void driveCCW()
+  {
+    if (Roomba.state == STATE_MOVING && Speed.radius != 1)
+    {
+      Speed.left = 0;
+      Speed.right = 0;
+    }
+    drive(Speed.left + 30, 1);
+  }
+
+  void stopMove()
+  {
+    Speed.left = 0;
+    Speed.right = 0;
+    Speed.radius = 0;
+    write(145);
+    write(0);
+    write(0);
+    write(0);
+    write(0);
+    Roomba.state = STATE_STOP;
+    sendState();
+  }
+
+  void driveDirect(int left, int right)
+  {
+    stayAwake();
+    byte command[] = {128, 131};
+    sendCommandList(command, 2);
+    Speed.left = left;
+    Speed.right = right;
+    Speed.radius = 0;
+    write(145);
+    write((right & 0xff00) >> 8);
+    write(right & 0xff);
+    write((left & 0xff00) >> 8);
+    write(left & 0xff);
+    Roomba.state = STATE_MOVING;
+    sendState();
   }
 };
