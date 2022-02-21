@@ -74,6 +74,7 @@ public:
     resetRoomba();
     register_service(&RoombaComponent::startCleaning, "startCleaning");
     register_service(&RoombaComponent::stopCleaning, "stopCleaning");
+    register_service(&RoombaComponent::startSpot, "spotCleaning");
     register_service(&RoombaComponent::return_to_base, "dock");
     register_service(&RoombaComponent::drive, "drive", {"velocity", "radius"});
     register_service(&RoombaComponent::driveDirect, "driveDirect", {"left", "right"});
@@ -300,6 +301,15 @@ public:
     stayAwake();
     Roomba.state = STATE_CLEANING;
     byte command[] = {128, 131, 135};
+    sendCommandList(command, 3);
+    sendState();
+  }
+
+  void startSpot()
+  {
+    stayAwake();
+    Roomba.state = STATE_CLEANING;
+    byte command[] = {128, 131, 134};
     sendCommandList(command, 3);
     sendState();
   }

@@ -135,6 +135,15 @@ button:
             auto roomba = ${init};
             roomba->return_to_base();
             return;
+  - platform: template
+    name: "Spot"
+    icon: "mdi:camera-metering-spot"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->startSpot();
+            return;
 
 # custom_component:
 # - lambda: |-
