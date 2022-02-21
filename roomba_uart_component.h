@@ -304,7 +304,7 @@ public:
     sendCommandList(command, 3);
     sendState();
   }
-
+  
   void startSpot()
   {
     stayAwake();
@@ -422,6 +422,32 @@ public:
       Speed.right = 0;
     }
     drive(Speed.left + 30, 1);
+  }
+
+  void driveLeft()
+  {
+    if (Speed.radius <= 0 || Speed.radius == -1)
+    {
+      Speed.radius = 500;
+    }
+    if (Speed.left == 0)
+    {
+      Speed.left = 180;
+    }
+    drive(Speed.left, Speed.radius - 100);
+  }
+
+  void driveRight()
+  {
+    if (Speed.radius >= 0 || Speed.radius == -1)
+    {
+      Speed.radius = -500;
+    }
+    if (Speed.left == 0)
+    {
+      Speed.left = 180;
+    }
+    drive(Speed.left, Speed.radius + 100);
   }
 
   void stopMove()

@@ -109,6 +109,24 @@ button:
             roomba->driveCCW();
             return;
   - platform: template
+    name: "Left"
+    icon: "mdi:arrow-left-bold"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveLeft();
+            return;
+  - platform: template
+    name: "Right"
+    icon: "mdi:arrow-right-bold"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveRight();
+            return;
+  - platform: template
     name: "Clean"
     icon: "mdi:vacuum"
     on_press:
