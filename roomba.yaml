@@ -46,12 +46,77 @@ sensor:
     lambda: |-
       auto roomba = ${init};
       App.register_component(roomba);
-      return {roomba->battery_charge, roomba->battery_temp, roomba->speed, roomba->radius};
+      return {roomba->battery_charge, roomba->battery_temp, roomba->speed, roomba->radius, roomba->mainSpeed, roomba->lateralSpeed, roomba->vacuumSpeed};
     sensors:
       - name: "Battery"
       - name: "Temperatura roomba"
       - name: "Speed"
       - name: "Radius"
+      - name: "Main brush speed"
+        id: mainSpeed
+      - name: "Lateral brush speed"
+        id: lateralSpeed
+      - name: "Vacuum speed"
+        id: vacuumSpeed
+      
+switch:
+  - platform: template
+    name: "Main brush"
+    lambda: |-
+      if (id(mainSpeed).state != 0) {
+        return true;
+      } else {
+        return false;
+      }
+    icon: "mdi:fan"
+    turn_on_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->mainBrush(127);
+          return;
+    turn_off_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->mainBrush(0);
+          return;
+  - platform: template
+    name: "Vacuum"
+    lambda: |-
+      if (id(vacuumSpeed).state != 0) {
+        return true;
+      } else {
+        return false;
+      }
+    icon: "mdi:vacuum"
+    turn_on_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->vacuum(127);
+          return;
+    turn_off_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->vacuum(0);
+          return;
+  - platform: template
+    name: "Lateral brush"
+    icon: "mdi:fan-speed-1"
+    lambda: |-
+      if (id(lateralSpeed).state != 0) {
+        return true;
+      } else {
+        return false;
+      }
+    turn_on_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->lateralBrush(127);
+          return;
+    turn_off_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->lateralBrush(0);
+          return;
       
 text_sensor:
   - platform: custom
@@ -61,6 +126,7 @@ text_sensor:
       return {roomba->roombaState};
     text_sensors:
       - name: "State"
+        id: state
         
 button:
   - platform: template

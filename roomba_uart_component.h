@@ -33,9 +33,17 @@ struct Roomba_State
 
 struct Roomba_Speed
 {
+  int16_t speed;
   int16_t left;
   int16_t right;
   int16_t radius;
+};
+
+struct Roomba_Motors
+{
+  int16_t main;
+  int16_t vacuum;
+  int16_t lateral;
 };
 
 class RoombaComponent : public PollingComponent,
@@ -47,6 +55,8 @@ class RoombaComponent : public PollingComponent,
 
   struct Roomba_State Roomba;
   struct Roomba_Speed Speed;
+  struct Roomba_Motors Motors;
+
   RoombaComponent(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin) : PollingComponent(updateInterval), UARTDevice(parent)
   {
     this->noSleepPin = noSleepPin;
@@ -59,6 +69,9 @@ public:
   TextSensor *roombaState = new TextSensor();
   Sensor *speed = new Sensor();
   Sensor *radius = new Sensor();
+  Sensor *mainSpeed = new Sensor();
+  Sensor *lateralSpeed = new Sensor();
+  Sensor *vacuumSpeed = new Sensor();
 
   static RoombaComponent *instance(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin)
   {
@@ -77,7 +90,7 @@ public:
     register_service(&RoombaComponent::startSpot, "spotCleaning");
     register_service(&RoombaComponent::return_to_base, "dock");
     register_service(&RoombaComponent::drive, "drive", {"velocity", "radius"});
-    register_service(&RoombaComponent::driveDirect, "driveDirect", {"left", "right"});
+    // register_service(&RoombaComponent::driveDirect, "driveDirect", {"left", "right"});
     register_service(&RoombaComponent::stopMove, "stopMoving");
   }
 
@@ -254,9 +267,12 @@ public:
   {
     this->battery_charge->publish_state(Roomba.battery_percent);
     this->battery_temp->publish_state(Roomba.battery_temp);
-    this->speed->publish_state((Speed.left + Speed.right) / 2);
+    this->speed->publish_state(Speed.speed);
     this->radius->publish_state(Speed.radius);
     this->roombaState->publish_state(translateState().c_str());
+    this->mainSpeed->publish_state(Motors.main);
+    this->lateralSpeed->publish_state(Motors.lateral);
+    this->vacuumSpeed->publish_state(Motors.vacuum);
   }
 
   String translateState()
@@ -304,7 +320,7 @@ public:
     sendCommandList(command, 3);
     sendState();
   }
-  
+
   void startSpot()
   {
     stayAwake();
@@ -382,8 +398,7 @@ public:
     {
       stopMove();
     }
-    Speed.left = velocity;
-    Speed.right = velocity;
+    Speed.speed = velocity;
     Speed.radius = radius;
     write(137);
     write((velocity & 0xff00) >> 8);
@@ -396,32 +411,32 @@ public:
 
   void driveForward()
   {
-    drive(Speed.left + 30, 0);
+    drive(Speed.speed + 60, 0);
   }
 
   void driveBackwards()
   {
-    drive(Speed.left - 30, 0);
+    drive(Speed.speed - 60, 0);
   }
 
   void driveCW()
   {
     if (Roomba.state == STATE_MOVING && Speed.radius != -1)
     {
-      Speed.left = 0;
+      Speed.speed = 0;
       Speed.right = 0;
     }
-    drive(Speed.left + 30, -1);
+    drive(Speed.speed + 30, -1);
   }
 
   void driveCCW()
   {
     if (Roomba.state == STATE_MOVING && Speed.radius != 1)
     {
-      Speed.left = 0;
+      Speed.speed = 0;
       Speed.right = 0;
     }
-    drive(Speed.left + 30, 1);
+    drive(Speed.speed + 30, 1);
   }
 
   void driveLeft()
@@ -430,11 +445,11 @@ public:
     {
       Speed.radius = 500;
     }
-    if (Speed.left == 0)
+    if (Speed.speed == 0)
     {
-      Speed.left = 180;
+      Speed.speed = 180;
     }
-    drive(Speed.left, Speed.radius - 100);
+    drive(Speed.speed, Speed.radius - 100);
   }
 
   void driveRight()
@@ -443,16 +458,16 @@ public:
     {
       Speed.radius = -500;
     }
-    if (Speed.left == 0)
+    if (Speed.speed == 0)
     {
-      Speed.left = 180;
+      Speed.speed = 180;
     }
-    drive(Speed.left, Speed.radius + 100);
+    drive(Speed.speed, Speed.radius + 100);
   }
 
   void stopMove()
   {
-    Speed.left = 0;
+    Speed.speed = 0;
     Speed.right = 0;
     Speed.radius = 0;
     write(145);
@@ -479,5 +494,37 @@ public:
     write(left & 0xff);
     Roomba.state = STATE_MOVING;
     sendState();
+  }
+
+  void motors(int main, int lateral, int vacuum)
+  {
+    stayAwake();
+    byte command[] = {128, 132};
+    sendCommandList(command, 2);
+    Motors.main = main;
+    Motors.lateral = lateral;
+    Motors.vacuum = vacuum;
+    write(144);
+    write(main);
+    write(lateral);
+    write(vacuum);
+    sendState();
+  }
+
+  void mainBrush(int main){
+    motors(main, Motors.lateral, Motors.vacuum);
+  }
+  void lateralBrush(int lateral){
+    motors(Motors.main, lateral, Motors.vacuum);
+  }
+  void vacuum(int vacuum){
+    motors(Motors.main, Motors.lateral, vacuum);
+  }
+
+  void undock()
+  {
+    drive(-30, 0);
+    delay(2000);
+    stopMove();
   }
 };
