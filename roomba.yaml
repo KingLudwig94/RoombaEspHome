@@ -117,7 +117,7 @@ switch:
           auto roomba = ${init};
           roomba->lateralBrush(0);
           return;
-      
+    
 text_sensor:
   - platform: custom
     lambda: |-
@@ -152,6 +152,7 @@ button:
     icon: "mdi:stop"
     on_press:
       then: 
+        - script.stop: corridoio
         - lambda: |-
             auto roomba = ${init};
             roomba->stopMove();
@@ -228,13 +229,78 @@ button:
             auto roomba = ${init};
             roomba->startSpot();
             return;
+  - platform: template
+    name: "Corridoio"
+    icon: "mdi:map-marker"
+    on_press:
+      then: 
+        - script.execute: corridoio
 
+script:
+  - id: corridoio
+    then:
+        - lambda: |-
+            auto roomba = ${init};
+            //undock
+            roomba->undock();
+            return;
+        - wait_until: 
+            condition: 
+              text_sensor.state:
+                id: state
+                state: "stop"
+        - lambda: |-
+            auto roomba = ${init};
+            //indietro
+            roomba->drive(-120,0);
+            return;
+        - delay: 7s
+        - lambda: |-
+            auto roomba = ${init};
+            //cw
+            roomba->drive(60,-1);
+            return;
+        - delay: 4.5s
+        - lambda: |-
+            auto roomba = ${init};
+            //avanti
+            roomba->drive(240,0);
+            return;
+        - delay: 8.s
+        - lambda: |-
+            auto roomba = ${init};  
+            //ccw
+            roomba->drive(30,1);
+            return;
+        - delay: 3s
+        - lambda: |-
+            auto roomba = ${init};
+            //avanti
+            roomba->drive(120,0);
+            return;
+        - delay: 3s
+        - lambda: |-
+            auto roomba = ${init};
+            //cw
+            roomba->drive(30,1);
+            return;
+        - delay: 3s
+        - lambda: |-
+            auto roomba = ${init};
+            //avanti
+            roomba->drive(240,0);
+            return;
+        - delay: 6s
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->stopMove();
+            return;
 # custom_component:
 # - lambda: |-
-#     auto roomba = new RoombaComponent(id(uart_bus),3000,4);
+#     auto roomba = ${init};
 #     App.register_component(roomba);
 #     return {roomba};
-#   # components:
-#   #   - id: roomba
+#   components:
+#     - id: roomba
     
 
