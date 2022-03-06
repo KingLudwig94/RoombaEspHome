@@ -5,10 +5,28 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "F5 Anything: Custom Command",
+            "name": "esphome compile mac",
             "type": "f5anything",
             "request": "launch",
             "command": "esphome compile roomba.yaml"
+        },
+        {
+            "name": "esphome compile win",
+            "type": "f5anything",
+            "request": "launch",
+            "command": "python -m esphome compile roomba.yaml"
+        },
+        {
+            "name": "esphome run mac",
+            "type": "f5anything",
+            "request": "launch",
+            "command": "esphome run roomba.yaml"
+        },
+        {
+            "name": "esphome run win",
+            "type": "f5anything",
+            "request": "launch",
+            "command": "python -m esphome run roomba.yaml"
         }
     ]
 }
