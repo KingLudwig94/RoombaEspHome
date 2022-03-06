@@ -1,4 +1,5 @@
 #include "esphome.h"
+#include "TickTwo.h"
 
 #define STATE_UNKNOWN 0
 #define STATE_CLEANING 1
@@ -57,10 +58,15 @@ class RoombaComponent : public PollingComponent,
   struct Roomba_Speed Speed;
   struct Roomba_Motors Motors;
 
-  RoombaComponent(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin) : PollingComponent(updateInterval), UARTDevice(parent)
+  RoombaComponent(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin) : PollingComponent(updateInterval), UARTDevice(parent), ticker{[this]()
+                                                                                                                                                     {
+                                                                                                                                                       //ESP_LOGD("custom", "FAST TRICKER");
+                                                                                                                                                       this->getSensors();
+                                                                                                                                                     },
+                                                                                                                                                     10000}
   {
     this->noSleepPin = noSleepPin;
-    // this->battery_charge = new Sensor();
+   // ticker.start();
   }
 
 public:
@@ -73,6 +79,7 @@ public:
   Sensor *lateralSpeed = new Sensor();
   Sensor *vacuumSpeed = new Sensor();
   TextSensor *chargeState = new TextSensor();
+  TickTwo ticker;
 
   static RoombaComponent *instance(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin)
   {
@@ -80,9 +87,24 @@ public:
     return INSTANCE;
   }
 
+  void loop() override {
+    if (Roomba.state != STATE_DOCKED)
+    {
+      //ESP_LOGD("custom", "TICKER: %d", ticker.state());
+      if (ticker.state() != RUNNING)
+      {
+        ticker.start();
+      }
+      ticker.update();
+    }else{
+      ticker.stop();
+    }
+  }
+
   void setup() override
   {
     // Setup the GPIO for pulsing the BRC pin.
+   // ticker.pause();
     pinMode(noSleepPin, OUTPUT);
     digitalWrite(noSleepPin, HIGH);
 
@@ -139,12 +161,15 @@ public:
     // 24 (1 byte reply) - battery_temp
     // 25 (2 byte reply) - battery charge
     // 26 (2 byte reply) - battery capacity
-    if(Roomba.state == STATE_MOVING){
-    byte command[] = {/*128,*/ 149, 1, 3};
-    sendCommandList(command, 3);
-    }else{
-    byte command[] = {128, 149, 1, 3};
-    sendCommandList(command, 4);
+    if (Roomba.state == STATE_MOVING)
+    {
+      byte command[] = {/*128,*/ 149, 1, 3};
+      sendCommandList(command, 3);
+    }
+    else
+    {
+      byte command[] = {128, 149, 1, 3};
+      sendCommandList(command, 4);
     }
 
     // Allow 25ms for processing...
@@ -152,11 +177,11 @@ public:
 
     // We should get 10 bytes back.
     i = 0;
-   // ESP_LOGD("custom", "RX:");
+    // ESP_LOGD("custom", "RX:");
     while (available() > 0)
     {
       buffer[i] = read();
-      //ESP_LOGD("custom", "buffer[%d] %f", i, buffer[i]);
+      // ESP_LOGD("custom", "buffer[%d] %f", i, buffer[i]);
       i++;
       delay(1);
     }
@@ -164,7 +189,7 @@ public:
     if (i == 0)
     {
       Roomba.num_timeouts++;
-      ESP_LOGD("custom", "ERROR: No response - Retry: %d", Roomba.num_timeouts);
+
       if (Roomba.num_timeouts > 10)
       {
         Roomba.state = STATE_UNKNOWN;
@@ -260,7 +285,14 @@ public:
     {
       if (Roomba.state != STATE_CLEANING && Roomba.state != STATE_MOVING)
       {
-        Roomba.state = STATE_DOCKED;
+        if (Roomba.battery_percent > 10 && Roomba.battery_current > -300 && Roomba.battery_current <0)
+        {
+          Roomba.state = STATE_IDLE;
+        }
+        else
+        {
+          Roomba.state = STATE_DOCKED;
+        }
       }
     }
 
@@ -375,10 +407,10 @@ public:
 
   void sendCommandList(byte *commands, byte len)
   {
-   // ESP_LOGD("custom", "TX:");
+    // ESP_LOGD("custom", "TX:");
     for (int i = 0; i < len; i++)
     {
-     // ESP_LOGD("custom", "byte %hhx", commands[i]);
+      // ESP_LOGD("custom", "byte %hhx", commands[i]);
       write(commands[i]);
     }
   }
