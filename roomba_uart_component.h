@@ -88,7 +88,7 @@ public:
   }
 
   void loop() override {
-    if (Roomba.state != STATE_DOCKED)
+    if (Roomba.state != STATE_DOCKED && Roomba.state != STATE_UNKNOWN)
     {
       //ESP_LOGD("custom", "TICKER: %d", ticker.state());
       if (ticker.state() != RUNNING)
@@ -287,7 +287,7 @@ public:
     {
       if (Roomba.state != STATE_CLEANING && Roomba.state != STATE_MOVING)
       {
-        if (Roomba.battery_percent > 10 && Roomba.battery_current > -300 && Roomba.battery_current <0)
+        if (Roomba.battery_percent > 10 && Roomba.battery_current > -300 && Roomba.battery_current <-100)
         {
           Roomba.state = STATE_IDLE;
         }
@@ -445,10 +445,11 @@ public:
   void drive(int velocity, int radius)
   {
     stayAwake();
-    byte command[] = {128, 132};
-    sendCommandList(command, 2);
     if (Roomba.state != STATE_MOVING || Roomba.state != STATE_STOP)
     {
+    //full mode
+      byte command[] = {128, 132};
+      sendCommandList(command, 2);
       stopMove();
     }
     Speed.speed = velocity;
