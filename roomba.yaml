@@ -40,7 +40,7 @@ wifi:
 captive_portal:
 
 substitutions:
-  init: 'RoombaComponent::instance(id(uart_bus), 60000, D2);'
+  init: 'RoombaComponent::instance(id(uart_bus), 10*60000, D2, 10*1000);'
 
 sensor:
   - platform: custom

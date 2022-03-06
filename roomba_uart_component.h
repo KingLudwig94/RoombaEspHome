@@ -58,12 +58,12 @@ class RoombaComponent : public PollingComponent,
   struct Roomba_Speed Speed;
   struct Roomba_Motors Motors;
 
-  RoombaComponent(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin) : PollingComponent(updateInterval), UARTDevice(parent), ticker{[this]()
+  RoombaComponent(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin, uint32_t fastUpdateInterval) : PollingComponent(updateInterval), UARTDevice(parent), ticker{[this]()
                                                                                                                                                      {
                                                                                                                                                        //ESP_LOGD("custom", "FAST TRICKER");
                                                                                                                                                        this->getSensors();
                                                                                                                                                      },
-                                                                                                                                                     10000}
+                                                                                                                                                     fastUpdateInterval}
   {
     this->noSleepPin = noSleepPin;
    // ticker.start();
@@ -81,9 +81,9 @@ public:
   TextSensor *chargeState = new TextSensor();
   TickTwo ticker;
 
-  static RoombaComponent *instance(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin)
+  static RoombaComponent *instance(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin,  uint32_t fastUpdateInterval)
   {
-    static RoombaComponent *INSTANCE = new RoombaComponent(parent, updateInterval, noSleepPin);
+    static RoombaComponent *INSTANCE = new RoombaComponent(parent, updateInterval, noSleepPin, fastUpdateInterval);
     return INSTANCE;
   }
 
@@ -118,6 +118,8 @@ public:
 
     delay(1000);
     resetRoomba();
+    delay(1000);
+    getSensors();
   }
 
   void update() override
