@@ -72,6 +72,7 @@ public:
   Sensor *mainSpeed = new Sensor();
   Sensor *lateralSpeed = new Sensor();
   Sensor *vacuumSpeed = new Sensor();
+  TextSensor *chargeState = new TextSensor();
 
   static RoombaComponent *instance(UARTComponent *parent, uint32_t updateInterval, uint8_t noSleepPin)
   {
@@ -84,7 +85,7 @@ public:
     // Setup the GPIO for pulsing the BRC pin.
     pinMode(noSleepPin, OUTPUT);
     digitalWrite(noSleepPin, HIGH);
-    resetRoomba();
+
     register_service(&RoombaComponent::startCleaning, "startCleaning");
     register_service(&RoombaComponent::stopCleaning, "stopCleaning");
     register_service(&RoombaComponent::startSpot, "spotCleaning");
@@ -92,6 +93,9 @@ public:
     register_service(&RoombaComponent::drive, "drive", {"velocity", "radius"});
     // register_service(&RoombaComponent::driveDirect, "driveDirect", {"left", "right"});
     register_service(&RoombaComponent::stopMove, "stopMoving");
+
+    delay(1000);
+    resetRoomba();
   }
 
   void update() override
@@ -101,7 +105,7 @@ public:
       resetRoomba();
     }
     // startCleaning();
-    // getSensors();
+    getSensors();
   }
 
   void stayAwake()
@@ -114,7 +118,7 @@ public:
 
   void getSensors()
   {
-    stayAwake();
+    // stayAwake();
     char buffer[10];
     ESP_LOGD("custom", "getSensors - start");
     int i = 0;
@@ -135,19 +139,24 @@ public:
     // 24 (1 byte reply) - battery_temp
     // 25 (2 byte reply) - battery charge
     // 26 (2 byte reply) - battery capacity
+    if(Roomba.state == STATE_MOVING){
+    byte command[] = {/*128,*/ 149, 1, 3};
+    sendCommandList(command, 3);
+    }else{
     byte command[] = {128, 149, 1, 3};
     sendCommandList(command, 4);
+    }
 
     // Allow 25ms for processing...
     delay(25);
 
     // We should get 10 bytes back.
     i = 0;
-    ESP_LOGD("custom", "RX:");
+   // ESP_LOGD("custom", "RX:");
     while (available() > 0)
     {
       buffer[i] = read();
-      ESP_LOGD("custom", "buffer[%d] %f", i, buffer[i]);
+      //ESP_LOGD("custom", "buffer[%d] %f", i, buffer[i]);
       i++;
       delay(1);
     }
@@ -184,6 +193,8 @@ public:
     Roomba.battery_temp = buffer[5];
     Roomba.battery_charge = (uint16_t)word(buffer[6], buffer[7]);
     Roomba.battery_capacity = (uint16_t)word(buffer[8], buffer[9]);
+
+    ESP_LOGD("custom", "Roomba: charge %s, volt: %d, curr: %d, temp %d, charge %d, capacity %d", mapChargeState(Roomba.charge_state).c_str(), Roomba.battery_voltage, Roomba.battery_current, Roomba.battery_temp, Roomba.battery_charge, Roomba.battery_capacity);
 
     // Sanity check some data...
     if (Roomba.charge_state > 6)
@@ -226,28 +237,28 @@ public:
       Roomba.state = STATE_UNKNOWN;
     }
 
-    // The next two states restart cleaning if battery current is too low do be doing anything.
-    if (Roomba.state == STATE_CLEANING)
-    {
-      if (Roomba.battery_percent > 10 && Roomba.battery_current > -300)
-      {
-        Roomba.num_restarts++;
-        startCleaning();
-      }
-    }
-    if (Roomba.state == STATE_RETURNING)
-    {
-      if (Roomba.battery_percent > 10 && Roomba.battery_current > -300)
-      {
-        Roomba.num_restarts++;
-        return_to_base();
-      }
-    }
+    // // The next two states restart cleaning if battery current is too low do be doing anything.
+    // if (Roomba.state == STATE_CLEANING)
+    // {
+    //   if (Roomba.battery_percent > 10 && Roomba.battery_current > -300)
+    //   {
+    //     Roomba.num_restarts++;
+    //     startCleaning();
+    //   }
+    // }
+    // if (Roomba.state == STATE_RETURNING)
+    // {
+    //   if (Roomba.battery_percent > 10 && Roomba.battery_current > -300)
+    //   {
+    //     Roomba.num_restarts++;
+    //     return_to_base();
+    //   }
+    // }
 
     // The following will only be run if we're in Reconditioning, Bulk charge, or Trickle charge.
     if (Roomba.charge_state >= CHARGE_RECONDITIONING && Roomba.charge_state <= CHARGE_WAITING)
     {
-      if (Roomba.state != STATE_CLEANING)
+      if (Roomba.state != STATE_CLEANING && Roomba.state != STATE_MOVING)
       {
         Roomba.state = STATE_DOCKED;
       }
@@ -259,7 +270,7 @@ public:
       return_to_base();
     }
 
-    // sendState();
+    sendState();
     ESP_LOGD("custom", "getSensors - success");
   }
 
@@ -273,6 +284,7 @@ public:
     this->mainSpeed->publish_state(Motors.main);
     this->lateralSpeed->publish_state(Motors.lateral);
     this->vacuumSpeed->publish_state(Motors.vacuum);
+    this->chargeState->publish_state(mapChargeState(Roomba.charge_state).c_str());
   }
 
   String translateState()
@@ -363,10 +375,10 @@ public:
 
   void sendCommandList(byte *commands, byte len)
   {
-    ESP_LOGD("custom", "TX:");
+   // ESP_LOGD("custom", "TX:");
     for (int i = 0; i < len; i++)
     {
-      ESP_LOGD("custom", "byte %hhx", commands[i]);
+     // ESP_LOGD("custom", "byte %hhx", commands[i]);
       write(commands[i]);
     }
   }
@@ -387,6 +399,13 @@ public:
     stayAwake();
     Serial.begin(115200);
     sendCommandList(command, 4);
+  }
+
+  void disconnect()
+  {
+    byte command[] = {173};
+    stayAwake();
+    sendCommandList(command, 1);
   }
 
   void drive(int velocity, int radius)
@@ -411,7 +430,15 @@ public:
 
   void driveForward()
   {
-    drive(Speed.speed + 60, 0);
+    if (Speed.radius != 0)
+    {
+      drive(Speed.speed, 0);
+    }
+    else
+    {
+
+      drive(Speed.speed + 60, 0);
+    }
   }
 
   void driveBackwards()
@@ -511,13 +538,16 @@ public:
     sendState();
   }
 
-  void mainBrush(int main){
+  void mainBrush(int main)
+  {
     motors(main, Motors.lateral, Motors.vacuum);
   }
-  void lateralBrush(int lateral){
+  void lateralBrush(int lateral)
+  {
     motors(Motors.main, lateral, Motors.vacuum);
   }
-  void vacuum(int vacuum){
+  void vacuum(int vacuum)
+  {
     motors(Motors.main, Motors.lateral, vacuum);
   }
 
@@ -526,5 +556,32 @@ public:
     drive(-30, 0);
     delay(2000);
     stopMove();
+  }
+
+  String mapChargeState(int state)
+  {
+    String s;
+    switch (state)
+    {
+    case 0:
+      s = "Not charging";
+      break;
+    case 1:
+      s = "Reconditioning Charging";
+      break;
+    case 2:
+      s = "Full Charging";
+      break;
+    case 3:
+      s = "Trickle Charging";
+      break;
+    case 4:
+      s = "Waiting";
+      break;
+    case 5:
+      s = "Charging Fault Condition";
+      break;
+    }
+    return s;
   }
 };

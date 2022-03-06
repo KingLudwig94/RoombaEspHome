@@ -49,7 +49,10 @@ sensor:
       return {roomba->battery_charge, roomba->battery_temp, roomba->speed, roomba->radius, roomba->mainSpeed, roomba->lateralSpeed, roomba->vacuumSpeed};
     sensors:
       - name: "Battery"
+        device_class: battery
       - name: "Temperatura roomba"
+        device_class: temperature
+        state_class: measurement
       - name: "Speed"
       - name: "Radius"
       - name: "Main brush speed"
@@ -123,10 +126,11 @@ text_sensor:
     lambda: |-
       auto roomba = ${init};
       //App.register_component(roomba);
-      return {roomba->roombaState};
+      return {roomba->roombaState, roomba->chargeState};
     text_sensors:
       - name: "State"
         id: state
+      - name: "Charge state"
         
 button:
   - platform: template
@@ -228,6 +232,24 @@ button:
         - lambda: |-
             auto roomba = ${init};
             roomba->startSpot();
+            return;
+  - platform: template
+    name: "Get sensors"
+    icon: "mdi:leak"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->getSensors();
+            return;
+  - platform: template
+    name: "Reset roomba"
+    icon: "mdi:restart-alert"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->resetRoomba();
             return;
   - platform: template
     name: "Corridoio"
