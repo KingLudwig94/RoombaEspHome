@@ -8,6 +8,7 @@ esphome:
   libraries:
     #- Roomba=https://github.com/davidecavestro/Roomba.git
     #- Roomba=https://github.com/Apocrathia/Roomba
+    - "TickTwo"
 
 # Enable logging
 logger:
@@ -39,34 +40,290 @@ wifi:
 captive_portal:
 
 substitutions:
-  init: 'RoombaComponent::instance(id(uart_bus),10000, D2);'
+  init: 'RoombaComponent::instance(id(uart_bus), 10*60000, D2, 10*1000);'
 
 sensor:
   - platform: custom
     lambda: |-
       auto roomba = ${init};
       App.register_component(roomba);
-      return {roomba->battery_charge, roomba->battery_temp};
+      return {roomba->battery_charge, roomba->battery_temp, roomba->speed, roomba->radius, roomba->mainSpeed, roomba->lateralSpeed, roomba->vacuumSpeed};
     sensors:
       - name: "Battery"
+        device_class: battery
       - name: "Temperatura roomba"
+        device_class: temperature
+        state_class: measurement
+      - name: "Speed"
+      - name: "Radius"
+      - name: "Main brush speed"
+        id: mainSpeed
+      - name: "Lateral brush speed"
+        id: lateralSpeed
+      - name: "Vacuum speed"
+        id: vacuumSpeed
       
+switch:
+  - platform: template
+    name: "Main brush"
+    lambda: |-
+      if (id(mainSpeed).state != 0) {
+        return true;
+      } else {
+        return false;
+      }
+    icon: "mdi:fan"
+    turn_on_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->mainBrush(127);
+          return;
+    turn_off_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->mainBrush(0);
+          return;
+  - platform: template
+    name: "Vacuum"
+    lambda: |-
+      if (id(vacuumSpeed).state != 0) {
+        return true;
+      } else {
+        return false;
+      }
+    icon: "mdi:vacuum"
+    turn_on_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->vacuum(127);
+          return;
+    turn_off_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->vacuum(0);
+          return;
+  - platform: template
+    name: "Lateral brush"
+    icon: "mdi:fan-speed-1"
+    lambda: |-
+      if (id(lateralSpeed).state != 0) {
+        return true;
+      } else {
+        return false;
+      }
+    turn_on_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->lateralBrush(127);
+          return;
+    turn_off_action:
+      - lambda: |-
+          auto roomba = ${init};
+          roomba->lateralBrush(0);
+          return;
+    
 text_sensor:
   - platform: custom
     lambda: |-
       auto roomba = ${init};
       //App.register_component(roomba);
-      return {roomba->roombaState};
+      return {roomba->roombaState, roomba->chargeState};
     text_sensors:
       - name: "State"
+        id: state
+      - name: "Charge state"
         
+button:
+  - platform: template
+    name: "Avanti"
+    icon: "mdi:arrow-up-bold"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveForward();
+            return;
+  - platform: template
+    name: "Indietro"
+    icon: "mdi:arrow-down-bold"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveBackwards();
+            return;
+  - platform: template
+    name: "Stop"
+    icon: "mdi:stop"
+    on_press:
+      then: 
+        - script.stop: corridoio
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->stopMove();
+            return;
+  - platform: template
+    name: "CW"
+    icon: "mdi:reload"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveCW();
+            return;
+  - platform: template
+    name: "CCW"
+    icon: "mdi:restore"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveCCW();
+            return;
+  - platform: template
+    name: "Left"
+    icon: "mdi:arrow-left-bold"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveLeft();
+            return;
+  - platform: template
+    name: "Right"
+    icon: "mdi:arrow-right-bold"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->driveRight();
+            return;
+  - platform: template
+    name: "Clean"
+    icon: "mdi:vacuum"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->startCleaning();
+            return;
+  - platform: template
+    name: "Stop cleaning"
+    icon: "mdi:stop"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->stopCleaning();
+            return;
+  - platform: template
+    name: "Dock"
+    icon: "mdi:fuel-cell"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->return_to_base();
+            return;
+  - platform: template
+    name: "Spot"
+    icon: "mdi:camera-metering-spot"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->startSpot();
+            return;
+  - platform: template
+    name: "Get sensors"
+    icon: "mdi:leak"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->getSensors();
+            return;
+  - platform: template
+    name: "Reset roomba"
+    icon: "mdi:restart-alert"
+    on_press:
+      then: 
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->resetRoomba();
+            return;
+  - platform: template
+    name: "Corridoio"
+    icon: "mdi:map-marker"
+    on_press:
+      then: 
+        - script.execute: corridoio
 
+script:
+  - id: corridoio
+    then:
+        - lambda: |-
+            auto roomba = ${init};
+            //undock
+            roomba->undock();
+            return;
+        - wait_until: 
+            condition: 
+              text_sensor.state:
+                id: state
+                state: "stop"
+        - lambda: |-
+            auto roomba = ${init};
+            //indietro
+            roomba->drive(-120,0);
+            return;
+        - delay: 7s
+        - lambda: |-
+            auto roomba = ${init};
+            //cw
+            roomba->drive(60,-1);
+            return;
+        - delay: 4.5s
+        - lambda: |-
+            auto roomba = ${init};
+            //avanti
+            roomba->drive(240,0);
+            return;
+        - delay: 8.s
+        - lambda: |-
+            auto roomba = ${init};  
+            //ccw
+            roomba->drive(30,1);
+            return;
+        - delay: 3s
+        - lambda: |-
+            auto roomba = ${init};
+            //avanti
+            roomba->drive(120,0);
+            return;
+        - delay: 3s
+        - lambda: |-
+            auto roomba = ${init};
+            //cw
+            roomba->drive(30,1);
+            return;
+        - delay: 3s
+        - lambda: |-
+            auto roomba = ${init};
+            //avanti
+            roomba->drive(240,0);
+            return;
+        - delay: 6s
+        - lambda: |-
+            auto roomba = ${init};
+            roomba->stopMove();
+            return;
 # custom_component:
 # - lambda: |-
-#     auto roomba = new RoombaComponent(id(uart_bus),3000,4);
+#     auto roomba = ${init};
 #     App.register_component(roomba);
 #     return {roomba};
-#   # components:
-#   #   - id: roomba
+#   components:
+#     - id: roomba
     
 
